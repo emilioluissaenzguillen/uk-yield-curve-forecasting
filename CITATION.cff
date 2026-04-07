@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite it using the metadata below."
+title: "UK Yield Curve Forecasting: Empirical Application"
+type: software
+authors:
+  - family-names: "Saenz Guillen"
+    given-names: "Emilio Luis"
+    affiliation: "Bayes Business School"
+version: 0.1.0
+date-released: 2026-04-07
+abstract: >
+  Repository for an empirical financial econometrics project on UK real yield
+  curve forecasting, combining a Diebold-Li state-space benchmark in MATLAB
+  with Python-based machine-learning, forecast comparison, and figure-generation
+  workflows.
+keywords:
+  - financial econometrics
+  - yield curve
+  - Diebold-Li
+  - state-space models
+  - LSTM
+  - forecasting
+license: MIT

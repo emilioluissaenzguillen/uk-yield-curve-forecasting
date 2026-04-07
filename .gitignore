@@ -1,0 +1,30 @@
+# Operating system files
+Thumbs.db
+Desktop.ini
+
+# MATLAB
+*.asv
+*.m~
+*.mlx.autosave
+slprj/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# R
+.Rhistory
+.RData
+.Ruserdata
+
+# Editors and IDEs
+.vscode/
+.idea/
+
+# Logs
+*.log
