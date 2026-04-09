@@ -1,17 +1,15 @@
-# UK Yield Curve Forecasting: Academic Repository
+# UK Yield Curve Forecasting
 
-This repository contains the empirical materials for a term-structure forecasting project developed in the context of Financial Econometrics at Bayes Business School. The project combines a state-space Diebold-Li specification with machine-learning components and supporting visualization scripts.
-
-The repository is being reorganized from coursework-style working files into a more professional and reproducible academic structure. At this stage, the MATLAB workflow has been cleaned first because it provides the core term-structure benchmark and the clearest starting point for a replication-oriented repository.
+This repository contains code and data workflows for forecasting the UK yield curve. It combines a state-space Diebold-Li benchmark in MATLAB with Python-based machine-learning, forecast comparison, and figure-generation scripts.
 
 ## Research focus
 
-The empirical application studies the dynamics and forecasting of the UK real yield curve. The current codebase includes:
+The empirical application studies the dynamics and forecasting of the UK real yield curve. The current repository includes:
 
 - a MATLAB implementation of the Diebold-Li state-space model;
 - Python code for forecast comparison and LSTM-based modeling;
 - Python code for figure generation from saved outputs;
-- archived scripts retained for traceability during the cleanup process.
+- repository metadata for citation and licensing.
 
 ## Repository structure
 
@@ -19,7 +17,6 @@ The empirical application studies the dynamics and forecasting of the UK real yi
 - `python/`: repository-facing Python workspace for plotting, forecasting, and forecast comparison.
 - `input/`: raw or externally sourced input data used by the empirical application.
 - `output/`: generated tables, figures, and forecast files.
-- `old/`: legacy or archival scripts kept temporarily during the restructuring process.
 
 ## MATLAB workflow
 
@@ -27,11 +24,7 @@ The main MATLAB entry point is:
 
 - `matlab/scripts/run_diebold_li_uk.m`
 
-This script is designed as the version-controlled source for a future MATLAB Live Script. It uses repository-relative paths and expects the MathWorks example support file `Example_DieboldLi.m` to be available locally through the MathWorks Diebold-Li example.
-
-The original coursework-style MATLAB script has been archived as:
-
-- `old/diebold_li_uk_legacy.m`
+This script is designed as the version-controlled source for the MATLAB workflow. It uses repository-relative paths and expects the MathWorks example support file `Example_DieboldLi.m` to be available locally through the MathWorks Diebold-Li example.
 
 The MATLAB-specific notes are documented in:
 
@@ -39,19 +32,11 @@ The MATLAB-specific notes are documented in:
 
 ## Reproducibility note
 
-The repository currently mixes cleaned files and legacy coursework files. This is intentional during the transition period so that results can still be traced back to the original working scripts.
-
-At present:
-
-- the MATLAB workflow has been partially standardized;
-- the active Python scripts have been moved into the `python/` workspace, but the modeling code still has legacy structure;
-- the legacy R plotting script has been archived and replaced by a Python plotting script;
-- the original top-level MATLAB coursework script has been archived to keep the root focused on repository-facing entry points;
-- no environment file or automated end-to-end pipeline has yet been added.
+The repository has been simplified to focus on the active MATLAB and Python workflows. It does not yet include a full environment specification or a fully automated end-to-end pipeline, so users should treat it as a research codebase rather than a one-command replication package.
 
 ## Core references
 
-The repository should cite both the academic model sources and the implementation source used for the MATLAB state-space workflow.
+The repository should cite both the academic model sources and the implementation source used for the MATLAB state-space workflow:
 
 - Diebold, F.X., and C. Li (2006). "Forecasting the Term Structure of Government Bond Yields." Journal of Econometrics, 130(2), 337-364.
 - Diebold, F.X., G.D. Rudebusch, and S.B. Aruoba (2006). "The Macroeconomy and the Yield Curve: A Dynamic Latent Factor Approach." Journal of Econometrics, 131, 309-338.
@@ -76,9 +61,9 @@ This license applies to the code in the repository. External data sources, third
 
 ## Current status
 
-The repository is not yet fully publication-ready, but it now has a cleaner MATLAB foundation. The next steps are to:
+The repository now has a clean public structure. The main remaining improvements are to:
 
-- review and establish a clean commit history;
-- decide which legacy files in `old/` are worth retaining long term;
+- create the MATLAB `.mlx` version directly from within MATLAB;
+- decide which generated outputs should remain versioned in `output/`;
+- optionally add an environment file for the Python workflow;
 - review whether additional repository metadata is needed beyond the current citation and license files;
-- decide which generated outputs should be versioned and which should remain reproducible artifacts only.
