@@ -1,7 +1,5 @@
 %% Diebold-Li UK Yield Curve Workflow
-% Academic replication workflow for the UK real forward curve application.
-% This script is designed as the plain-text source for a MATLAB Live Script
-% and is intended to support a professional GitHub repository.
+% MATLAB workflow for the UK real forward curve application.
 %
 % Implementation note:
 %   The state-space estimation workflow and the missing helper function
@@ -20,35 +18,43 @@
 %   - Econometrics Toolbox
 %   - Statistics and Machine Learning Toolbox
 %   - MathWorks example support file Example_DieboldLi.m
-%
-% Suggested Live Script sections:
-%   1. Motivation and references
-%   2. Data description
-%   3. Yield curve visualization
-%   4. Rolling Diebold-Li estimation
-%   5. Forecast output and interpretation
 
 clearvars
 close all
 clc
 
 %% Motivation
-% This workflow applies a Diebold-Li term-structure model in state-space
-% form to UK real forward curve data. The goal is to estimate latent level,
-% slope, and curvature factors and then compute rolling one-step-ahead MMSE
-% forecasts across the maturity spectrum.
-%
-% The empirical design follows the structure of the MathWorks tutorial for
-% state-space estimation, adapted here to UK data and to the repository's
-% directory layout.
+% Apply a Diebold-Li state-space model to UK real forward curve data and
+% compute rolling one-step-ahead forecasts.
 
 %% Project paths and dependency checks
-scriptDirectory = fileparts(mfilename('fullpath'));
+scriptPath = string(mfilename('fullpath'));
+
+% Running sections from the MATLAB editor can make mfilename unreliable for
+% scripts, so fall back to the active editor file when needed.
+if strlength(scriptPath) == 0 || ~isfile(scriptPath)
+    if usejava('desktop')
+        scriptPath = string(matlab.desktop.editor.getActiveFilename);
+    end
+end
+
+if strlength(scriptPath) == 0 || ~isfile(scriptPath)
+    error("run_diebold_li_uk:UnknownScriptPath", ...
+        ['Could not determine the location of run_diebold_li_uk.m. ', ...
+         'Open and run the file directly from matlab/scripts/.']);
+end
+
+scriptDirectory = fileparts(scriptPath);
 matlabDirectory = fileparts(scriptDirectory);
 functionsDirectory = fullfile(matlabDirectory, "functions");
 projectRoot = fileparts(matlabDirectory);
 inputDirectory = fullfile(projectRoot, "input", "glcrealddata");
 outputDirectory = fullfile(projectRoot, "output");
+
+if ~isfolder(functionsDirectory)
+    error("run_diebold_li_uk:MissingFunctionsFolder", ...
+        "Expected MATLAB helper folder not found: %s", functionsDirectory);
+end
 
 addpath(functionsDirectory);
 
@@ -77,8 +83,7 @@ disp("MathWorks dependency in use")
 disp(string(dependencyPath))
 
 %% Visualize the yield curve panel
-% The surface plot provides a compact view of how the cross-section of real
-% forward rates evolves over time.
+% Surface plot of the yield panel over time and maturity.
 
 figure
 surf(maturitiesYears, yieldCurve.dates, yieldCurve.yields)
@@ -90,32 +95,64 @@ title('UK Real Forward Curve Surface')
 colormap winter
 
 %% Rolling one-step-ahead Diebold-Li forecasts
-% The specification below mirrors the standard three-factor Diebold-Li
-% framework. For each rolling origin, the script:
-%   1. estimates latent factors by OLS with fixed lambda;
-%   2. fits a VAR(1) to the factor series for initial values;
-%   3. estimates the state-space model by maximum likelihood;
-%   4. produces a one-step-ahead MMSE forecast for the yield curve.
+% For each rolling origin, estimate the model and produce a one-step-ahead
+% forecast.
 
-forecastOrigins = 255;
-initialTrainingEnd = 5438;
+%% Forecast design
+% Use "fast" for development and "full" for the denser rolling exercise.
+runMode = "fast";
+
+switch runMode
+    case "fast"
+        evaluationWindowDays = 60;
+        forecastOriginStep = 5;
+        selectedMaturitiesMonths = [48; 72; 120; 180; 240; 300];
+        maxFunctionEvaluations = 5000;
+        maxIterations = 200;
+    case "full"
+        evaluationWindowDays = 255;
+        forecastOriginStep = 1;
+        selectedMaturitiesMonths = maturitiesMonths;
+        maxFunctionEvaluations = 25000;
+        maxIterations = 1000;
+    otherwise
+        error("run_diebold_li_uk:UnknownRunMode", ...
+            "runMode must be either ""fast"" or ""full"".");
+end
+
+selectedMaturityMask = ismember(maturitiesMonths, selectedMaturitiesMonths);
+activeMaturitiesMonths = maturitiesMonths(selectedMaturityMask);
+activeMaturitiesYears = maturitiesYears(selectedMaturityMask);
+activeYieldCurve = yieldCurve;
+activeYieldCurve.yields = yieldCurve.yields(:, selectedMaturityMask);
+
 forecastHorizon = 1;
-numMaturities = numel(maturitiesMonths);
-MMSEForecasts = NaN(forecastOrigins, numMaturities);
+forecastOriginIndices = 1:forecastOriginStep:evaluationWindowDays;
+numForecastOrigins = numel(forecastOriginIndices);
+initialTrainingEnd = height(activeYieldCurve) - evaluationWindowDays;
+numMaturities = numel(activeMaturitiesMonths);
+MMSEForecasts = NaN(numForecastOrigins, numMaturities);
+previousEstimatedParameters = [];
 
-if initialTrainingEnd + forecastOrigins - 1 > height(yieldCurve)
+if evaluationWindowDays <= 0 || evaluationWindowDays >= height(activeYieldCurve)
+    error("run_diebold_li_uk:InvalidForecastOrigins", ...
+        "evaluationWindowDays must be positive and smaller than the sample length.");
+end
+
+if initialTrainingEnd + evaluationWindowDays > height(activeYieldCurve)
     error("run_diebold_li_uk:InvalidWindow", ...
         "The requested rolling window exceeds the available sample length.");
 end
 
 lambda0 = 0.0609;
-X = [ones(size(maturitiesMonths)), ...
-    (1 - exp(-lambda0 * maturitiesMonths)) ./ (lambda0 * maturitiesMonths), ...
-    ((1 - exp(-lambda0 * maturitiesMonths)) ./ (lambda0 * maturitiesMonths) - exp(-lambda0 * maturitiesMonths))];
+X = [ones(size(activeMaturitiesMonths)), ...
+    (1 - exp(-lambda0 * activeMaturitiesMonths)) ./ (lambda0 * activeMaturitiesMonths), ...
+    ((1 - exp(-lambda0 * activeMaturitiesMonths)) ./ (lambda0 * activeMaturitiesMonths) - exp(-lambda0 * activeMaturitiesMonths))];
 
-for forecastOrigin = 1:forecastOrigins
+for originIndex = 1:numForecastOrigins
+    forecastOrigin = forecastOriginIndices(originIndex);
     trainingEnd = initialTrainingEnd + forecastOrigin - 1;
-    trainingSample = yieldCurve(1:trainingEnd, :);
+    trainingSample = activeYieldCurve(1:trainingEnd, :);
     yields = trainingSample.yields;
 
     beta = zeros(size(yields, 1), 3);
@@ -130,7 +167,7 @@ for forecastOrigin = 1:forecastOrigins
     varModel = varm(3, 1);
     estimatedVarModel = estimate(varModel, beta);
 
-    stateSpaceModel = ssm(@(params) Example_DieboldLi(params, yields, maturitiesMonths));
+    stateSpaceModel = ssm(@(params) Example_DieboldLi(params, yields, activeMaturitiesMonths));
 
     A0 = estimatedVarModel.AR{1};
     A0 = A0(:);
@@ -139,18 +176,28 @@ for forecastOrigin = 1:forecastOrigins
     H0 = cov(residuals);
     D0 = sqrt(diag(H0));
     mu0 = mean(beta)';
-    initialParameters = [A0; B0; D0; mu0; lambda0];
+    defaultInitialParameters = [A0; B0; D0; mu0; lambda0];
+
+    if isempty(previousEstimatedParameters)
+        initialParameters = defaultInitialParameters;
+    else
+        initialParameters = previousEstimatedParameters;
+    end
 
     options = optimoptions('fminunc', ...
-        'MaxFunEvals', 25000, ...
+        'MaxFunEvals', maxFunctionEvaluations, ...
         'Algorithm', 'quasi-newton', ...
         'TolFun', 1e-8, ...
         'TolX', 1e-8, ...
-        'MaxIter', 1000, ...
+        'MaxIter', maxIterations, ...
         'Display', 'off');
 
-    [estimatedStateSpaceModel, parameters] = estimate(stateSpaceModel, yields, ...
-        initialParameters, 'Display', 'off', 'Options', options, 'Univariate', true);
+    [estimatedStateSpaceModel, parameters] = estimate( ...
+        stateSpaceModel, yields, initialParameters, ...
+        'Display', 'off', ...
+        'Options', options, ...
+        'Univariate', true, ...
+        'Tolerance', 1e-15);
 
     mu = parameters(end-3:end-1)';
     intercept = estimatedStateSpaceModel.C * mu';
@@ -159,44 +206,55 @@ for forecastOrigin = 1:forecastOrigins
     [forecastedDeflatedYields, ~] = forecast(estimatedStateSpaceModel, ...
         forecastHorizon, deflatedYields);
 
-    MMSEForecasts(forecastOrigin, :) = forecastedDeflatedYields + intercept';
+    MMSEForecasts(originIndex, :) = forecastedDeflatedYields + intercept';
+    previousEstimatedParameters = parameters;
 end
 
 %% Organize outputs
-forecastDates = yieldCurve.dates(initialTrainingEnd + 1:initialTrainingEnd + forecastOrigins);
+forecastDates = activeYieldCurve.dates(initialTrainingEnd + forecastOriginIndices);
 forecastTable = array2table(MMSEForecasts, ...
-    'VariableNames', matlab.lang.makeValidName("m" + string(maturitiesMonths)));
+    'VariableNames', matlab.lang.makeValidName("m" + string(activeMaturitiesMonths)));
 forecastTable = addvars(forecastTable, forecastDates, 'Before', 1, 'NewVariableNames', "forecast_date");
+forecastTable = addvars(forecastTable, ...
+    forecastOriginIndices', ...
+    'Before', 2, ...
+    'NewVariableNames', {'forecast_origin_index'});
+
+if runMode == "full"
+    forecastMatrixFile = "MMSEForecasts.csv";
+    forecastTableFile = "MMSEForecasts_table.csv";
+else
+    forecastMatrixFile = "MMSEForecasts_fast_ssm.csv";
+    forecastTableFile = "MMSEForecasts_fast_ssm_table.csv";
+end
 
 outputMetadata = table( ...
     string(projectRoot), ...
     string(dependencyPath), ...
-    forecastOrigins, ...
+    string(runMode), ...
+    numMaturities, ...
+    join(string(activeMaturitiesMonths)', ","), ...
+    evaluationWindowDays, ...
+    forecastOriginStep, ...
+    numForecastOrigins, ...
     initialTrainingEnd, ...
     forecastHorizon, ...
-    'VariableNames', {'project_root', 'mathworks_dependency_path', 'forecast_origins', 'initial_training_end', 'forecast_horizon'});
+    'VariableNames', {'project_root', 'mathworks_dependency_path', 'run_mode', 'num_maturities_used', 'maturities_months_used', 'evaluation_window_days', 'forecast_origin_step', 'num_forecast_origins', 'initial_training_end', 'forecast_horizon'});
 
 %% Save outputs
-writematrix(MMSEForecasts, fullfile(outputDirectory, "MMSEForecasts.csv"));
-writetable(forecastTable, fullfile(outputDirectory, "MMSEForecasts_table.csv"));
+writematrix(MMSEForecasts, fullfile(outputDirectory, forecastMatrixFile));
+writetable(forecastTable, fullfile(outputDirectory, forecastTableFile));
 writetable(sampleSummary, fullfile(outputDirectory, "matlab_sample_summary.csv"));
 writetable(outputMetadata, fullfile(outputDirectory, "matlab_run_metadata.csv"));
 
 %% Illustrative forecast plot
-% The plot below highlights one forecasted curve from the rolling exercise.
+% Plot one forecasted curve from the rolling exercise.
 
-exampleForecastIndex = 12;
+exampleForecastIndex = min(12, numForecastOrigins);
 
 figure
-plot(maturitiesYears, MMSEForecasts(exampleForecastIndex, :)')
+plot(activeMaturitiesYears, MMSEForecasts(exampleForecastIndex, :)')
 title(sprintf('One-step-ahead forecast at rolling origin %d', exampleForecastIndex))
 xlabel('Maturity (Years)')
 ylabel('Percent')
 legend({'MMSE'}, 'Location', 'best')
-
-%% Interpretation notes
-% In the Live Script version, this section is a good place to discuss:
-%   - whether the forecasted curve preserves plausible shape restrictions;
-%   - how the UK application compares with the U.S. tutorial benchmark;
-%   - which maturities appear hardest to fit or forecast;
-%   - how the state-space estimates differ from simpler two-step estimates.

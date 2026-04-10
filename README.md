@@ -49,8 +49,6 @@ Repository-level citation metadata is provided in:
 
 - `CITATION.cff`
 
-Once this repository is published on GitHub, that file will allow GitHub to expose a machine-readable citation entry directly from the repository interface.
-
 ## License note
 
 The repository code is released under the MIT License. See:
