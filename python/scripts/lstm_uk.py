@@ -121,15 +121,15 @@ for i in yields.columns:
 
 
 # reshape input into 3D as [samples, time steps, features]
-    X_train = np.reshape(X_train, (X_train.shape[0], 1, X_train.shape[1]))
-    X_test = np.reshape(X_test, (X_test.shape[0], 1, X_test.shape[1]))
+    X_train = X_train.reshape(X_train.shape[0], look_back, 1)
+    X_test = X_test.reshape(X_test.shape[0], look_back, 1)
     
     import random
     random.seed(190)
     model = Sequential()
 
 # use 100 neurons in the first hidden layer and 1 neuron in the output layer to predict yields
-# input shape is one time step with features
+# input shape is look_back time steps with one feature
     model.add(LSTM(100, input_shape=(X_train.shape[1], X_train.shape[2])))
 
 # regularize: dropout 20 percent of the data
